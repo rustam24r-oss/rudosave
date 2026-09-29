@@ -12,6 +12,7 @@ import tempfile
 import time
 from pathlib import Path
 
+from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart
 from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
@@ -110,7 +111,7 @@ async def to_4k(src: str, dst: str) -> None:
         "ffmpeg", "-y", "-i", src,
         "-vf", "scale=3840:2160:force_original_aspect_ratio=decrease:flags=lanczos,"
                "pad=3840:2160:(ow-iw)/2:(oh-ih)/2,unsharp=5:5:0.8",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-threads", "2",
         "-c:a", "copy", "-movflags", "+faststart", dst,
     )
     if code:
@@ -192,7 +193,22 @@ async def on_action(c: types.CallbackQuery):
             Path(dst).unlink(missing_ok=True)
 
 
+async def health(request):
+    return web.Response(text="OK")
+
+
+async def start_web() -> None:
+    """Render Web Service port kutadi + UptimeRobot shu manzilni ping qiladi."""
+    app = web.Application()
+    app.router.add_get("/", health)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 10000)))
+    await site.start()
+
+
 async def main():
+    await start_web()
     asyncio.create_task(cleaner())
     await dp.start_polling(bot)
 
